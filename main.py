@@ -85,8 +85,9 @@ async def main():
 
             # Run the WebSocket clients concurrently
             task = asyncio.gather(*(client.connect() for client in batch))
-            print(f"Batch {i // WS_BATCH_SIZE + 1} of {MAX_WS_CONNECTIONS / WS_BATCH_SIZE} instantiated. Sleeping for {RATE_LIMIT_SLEEP} seconds.")
             tasks.append(task)
+            print(f"Batch {i // WS_BATCH_SIZE + 1} of {MAX_WS_CONNECTIONS / WS_BATCH_SIZE} instantiated. Sleeping for {RATE_LIMIT_SLEEP} seconds.")
+            print("----------------------------------------")
 
             # Wait for RATE_LIMIT_SLEEP seconds before creating the next batch so we avoid rate limiting
             await asyncio.sleep(RATE_LIMIT_SLEEP)
