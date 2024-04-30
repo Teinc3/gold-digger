@@ -32,7 +32,7 @@ class WebSocketClient:
 
     async def handle_connection(self, websocket):
         # Convert hex string to binary
-        message = Wrapper.socketInit()
+        message = Wrapper.socket_init()
 
         # Send binary message on open
         await websocket.send(message)
@@ -53,7 +53,7 @@ class WebSocketClient:
 
     async def respond(self, websocket, result):
         wrapper = Wrapper()
-        response = wrapper.getResponse(result, token)
+        response = wrapper.get_response(result, token)
         if not response:
             print("BUG")
             # Quit event loop
@@ -61,7 +61,7 @@ class WebSocketClient:
         elif response == True:
             print(f"Logged in successfully for {self.endpoint}.")
             # Spoof progress
-            message = Wrapper.spoofInitProgress()
+            message = Wrapper.spoof_progress()
             while True:
                 await asyncio.sleep(PROGRESS_SPOOF_INTERVAL)
                 await websocket.send(message)
