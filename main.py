@@ -1,16 +1,22 @@
 import sys
+import os
 import asyncio
 import websockets
+from dotenv import load_dotenv
 
 from unwrapper import Unwrapper
 from wrapper import Wrapper
 
-WS_BATCH_SIZE = 20
-MAX_WS_CONNECTIONS = 400
-RATE_LIMIT_SLEEP = 45
-PROGRESS_SPOOF_INTERVAL = 14 # 0.056s * 250 ticks
-
 token = ""
+if os.path.exists(".env"):
+    load_dotenv()
+    token = os.getenv("TOKEN") or ""
+
+
+WS_BATCH_SIZE = 30
+MAX_WS_CONNECTIONS = 450
+RATE_LIMIT_SLEEP = 65 # 5s buffer
+PROGRESS_SPOOF_INTERVAL = 14 # 0.056s * 250 ticks
 
 class WebSocketClient:
     def __init__(self, endpoint):
@@ -86,7 +92,7 @@ async def main():
             # Run the WebSocket clients concurrently
             task = asyncio.gather(*(client.connect() for client in batch))
             tasks.append(task)
-            print(f"Batch {i // WS_BATCH_SIZE + 1} of {MAX_WS_CONNECTIONS / WS_BATCH_SIZE} instantiated. Sleeping for {RATE_LIMIT_SLEEP} seconds.")
+            print(f"Batch {i // WS_BATCH_SIZE + 1} of {MAX_WS_CONNECTIONS // WS_BATCH_SIZE} instantiated. Sleeping for {RATE_LIMIT_SLEEP} seconds.")
             print("----------------------------------------")
 
             # Wait for RATE_LIMIT_SLEEP seconds before creating the next batch so we avoid rate limiting
@@ -97,9 +103,7 @@ async def main():
             await task
 
     except asyncio.exceptions.CancelledError:
-        print("Tasks were cancelled.")
-    except KeyboardInterrupt:
-        print("Exiting...")
+        print("Tasks were cancelled. Exiting...")
         exit()
 
 # Run the main function
