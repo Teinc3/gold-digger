@@ -58,7 +58,7 @@ $ python main.py
 
 5. Enjoy your gold!
 
-6. To stop the script, press `Ctrl+C` to interrupt the process.
+6. To stop the script, press `Ctrl+C` to interrupt the process. You may have to do it twice for it to stop successfully.
 
 
 ## Testimonials

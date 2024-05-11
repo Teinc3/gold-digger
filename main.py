@@ -14,27 +14,29 @@ if os.path.exists(".env"):
 
 
 WS_BATCH_SIZE = 30
-MAX_WS_CONNECTIONS = 450
+MAX_WS_CONNECTIONS = 900
 RATE_LIMIT_SLEEP = 65 # 5s buffer
 PROGRESS_SPOOF_INTERVAL = 14 # 0.056s * 250 ticks
 
 class WebSocketClient:
     def __init__(self, endpoint):
         self.endpoint = endpoint
+        self.state = "Connecting"
 
     async def connect(self):
         try:
             async with websockets.connect(self.endpoint) as websocket:
-                print(f"WebSocket connection established for {self.endpoint}.")
-
+                self.state = "Established"
                 await self.handle_connection(websocket)
 
         except websockets.exceptions.ConnectionClosedError:
-            print(f"WebSocket connection closed for {self.endpoint}.")
+            self.state = "Closed"
         except websockets.exceptions.WebSocketException as e:
-            print(f"WebSocket error occurred for {self.endpoint}: {str(e)}")
+            self.state = "Error"
         except TimeoutError:
-            print(f"Timeout error occurred for {self.endpoint}.")
+            self.state = "Error"
+        except OSError:
+            self.state = "Error"
 
     async def handle_connection(self, websocket):
         # Convert hex string to binary
@@ -61,11 +63,11 @@ class WebSocketClient:
         wrapper = Wrapper()
         response = wrapper.get_response(result, token)
         if not response:
-            print("BUG")
+            self.state = "Bugged"
             # Quit event loop
             return
         elif response == True:
-            print(f"Logged in successfully for {self.endpoint}.")
+            self.state = "Active"
             # Spoof progress
             message = Wrapper.spoof_progress()
             while True:
@@ -77,7 +79,27 @@ class WebSocketClient:
                 response = [response]
             for res in response:
                 await websocket.send(res)
-                    
+
+
+async def log_statistics(clients):
+    await asyncio.sleep(RATE_LIMIT_SLEEP)
+
+    counter_stats = {
+        "Connecting": 0,
+        "Established": 0,
+        "Closed": 0,
+        "Error": 0,
+        "Active": 0,
+        "Bugged": 0
+    }
+    for client in clients:
+        counter_stats[client.state] += 1
+
+    string = "Socket Statistics: "
+    for key, value in counter_stats.items():
+        string += f"\n{key}: {value}"
+    print(string)
+
 async def main():
     try:
         # Create a list to store all the WebSocket clients
@@ -92,19 +114,27 @@ async def main():
             # Run the WebSocket clients concurrently
             task = asyncio.gather(*(client.connect() for client in batch))
             tasks.append(task)
-            print(f"Batch {i // WS_BATCH_SIZE + 1} of {MAX_WS_CONNECTIONS // WS_BATCH_SIZE} instantiated. Sleeping for {RATE_LIMIT_SLEEP} seconds.")
-            print("----------------------------------------")
 
-            # Wait for RATE_LIMIT_SLEEP seconds before creating the next batch so we avoid rate limiting
-            await asyncio.sleep(RATE_LIMIT_SLEEP)
+            batch_count = i // WS_BATCH_SIZE + 1
+            max_batch_size = MAX_WS_CONNECTIONS // WS_BATCH_SIZE
+            print("----------------------------------------")
+            print(f"Batch {batch_count} of {max_batch_size} instantiated.")
+            if batch_count < max_batch_size:
+                print(f"Instantiating next batch in {RATE_LIMIT_SLEEP} seconds.")
+
+            await log_statistics(clients)
 
         # await all tasks
         for task in tasks:
             await task
 
-    except asyncio.exceptions.CancelledError:
-        print("Tasks were cancelled. Exiting...")
-        exit()
+        # Log statistics every RATE_LIMIT_SLEEP seconds
+        while True:
+            await log_statistics(clients)
+
+    except (KeyboardInterrupt, asyncio.exceptions.CancelledError) as e:
+        print("Exiting...")
+        os._exit(1 if isinstance(e, KeyboardInterrupt) else 0)
 
 # Run the main function
 if __name__ == "__main__":
